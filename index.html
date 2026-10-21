@@ -1,0 +1,1437 @@
+<title>사주 궁합 계산기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;600&family=Noto+Serif+KR:wght@600;900&display=swap">
+<style>
+  /* 레이아웃: 한 줄 기둥의 명식표(오른쪽에서 왼쪽으로 年→時)를 축으로, 풀이와 계산기가 한 단으로 이어지는 한지 위 문서 */
+  :root {
+    --paper: #f2f3ef;
+    --surface: #fbfbf8;
+    --ink: #1c2230;
+    --muted: #5b6372;
+    --line: #d7dad3;
+    --seal: #b0352a;
+    --wood: #2c7a57;
+    --fire: #c03d2a;
+    --earth: #a87a1c;
+    --metal: #7d838d;
+    --water: #23406e;
+    --on-el: #ffffff;
+    --font-hanja: "Noto Serif KR", "Batang", "AppleMyungjo", serif;
+    --font-read: "Gowun Batang", "Noto Serif KR", "Batang", serif;
+    --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #12151c; --surface: #1a1e27; --ink: #e9e7e0; --muted: #a0a7b3; --line: #2c313c;
+      --seal: #e2654f; --wood: #4fae84; --fire: #e8664f; --earth: #d6a845; --metal: #aeb4be; --water: #6f93d4;
+      --on-el: #12151c; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #12151c; --surface: #1a1e27; --ink: #e9e7e0; --muted: #a0a7b3; --line: #2c313c;
+    --seal: #e2654f; --wood: #4fae84; --fire: #e8664f; --earth: #d6a845; --metal: #aeb4be; --water: #6f93d4;
+    --on-el: #12151c; color-scheme: dark;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-block: 40px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+  }
+  h1, h2, h3 { font-family: var(--font-read); text-wrap: balance; margin: 0; }
+  h2 { font-size: 1.45rem; font-weight: 700; }
+  h3 { font-size: 1.08rem; font-weight: 700; }
+  p { margin: 0; }
+  .eyebrow {
+    font-size: 0.75rem; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase;
+  }
+  section { display: flex; flex-direction: column; gap: 18px; }
+  .section-head { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 20px; }
+
+  /* 머리 */
+  .masthead { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+  .masthead-text { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .masthead h1 { font-size: clamp(2.2rem, 7vw, 3.2rem); line-height: 1.15; }
+  .meta { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .seal {
+    flex: none; width: 72px; height: 72px; border: 3px solid var(--seal); border-radius: 6px;
+    color: var(--seal); font-family: var(--font-hanja); font-weight: 900; font-size: 1.6rem;
+    display: grid; place-items: center; line-height: 1; writing-mode: vertical-rl; letter-spacing: 0.08em;
+    transform: rotate(-4deg); margin-top: 6px;
+  }
+  .lede { font-family: var(--font-read); font-size: 1.12rem; line-height: 1.8; max-width: 62ch; }
+
+  /* 명식표 */
+  .chart-wrap { overflow-x: auto; }
+  .chart {
+    display: grid; grid-template-columns: repeat(4, minmax(72px, 1fr)); gap: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 12px;
+  }
+  .pillar { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; text-align: center; }
+  .pillar-label { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.06em; }
+  .pillar.is-day .pillar-label { color: var(--seal); font-weight: 600; }
+  .god { font-size: 0.78rem; color: var(--muted); min-height: 1.3em; }
+  .pillar.is-day .god.stem-god { color: var(--seal); font-weight: 600; }
+  .char {
+    width: 100%; max-width: 76px; aspect-ratio: 1; border-radius: 8px;
+    display: grid; place-items: center; font-family: var(--font-hanja); font-weight: 900;
+    font-size: clamp(1.7rem, 7vw, 2.4rem); line-height: 1; color: var(--on-el);
+  }
+  .char.wood { background: var(--wood); } .char.fire { background: var(--fire); }
+  .char.earth { background: var(--earth); } .char.metal { background: var(--metal); }
+  .char.water { background: var(--water); }
+  .char.empty { background: transparent; border: 1px dashed var(--line); color: var(--muted); font-size: 0.85rem; font-family: var(--font-ui); font-weight: 400; }
+  .sub { font-size: 0.78rem; color: var(--muted); }
+  .chart-note { font-size: 0.82rem; color: var(--muted); }
+
+  /* 오행 분포 */
+  .elements { display: flex; flex-direction: column; gap: 8px; }
+  .el-row { display: grid; grid-template-columns: 4.5rem 1fr 2.5rem; align-items: center; gap: 12px; }
+  .el-name { font-family: var(--font-read); font-weight: 700; }
+  .el-dots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dot { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line); background: transparent; }
+  .el-row.wood .dot.on { background: var(--wood); border-color: var(--wood); }
+  .el-row.fire .dot.on { background: var(--fire); border-color: var(--fire); }
+  .el-row.earth .dot.on { background: var(--earth); border-color: var(--earth); }
+  .el-row.metal .dot.on { background: var(--metal); border-color: var(--metal); }
+  .el-row.water .dot.on { background: var(--water); border-color: var(--water); }
+  .el-count { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .el-row.zero .el-name { color: var(--muted); }
+
+  /* 엔진 결과 */
+  .engine {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+    padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 20px;
+  }
+  .kv { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .kv dt { font-size: 0.76rem; color: var(--muted); letter-spacing: 0.04em; }
+  .kv dd { margin: 0; font-family: var(--font-read); font-weight: 700; font-size: 1.05rem; }
+  .engine-quote { grid-column: 1 / -1; font-size: 0.88rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 10px; }
+
+  /* 풀이 */
+  .reading { display: flex; flex-direction: column; gap: 22px; }
+  .point { display: flex; flex-direction: column; gap: 6px; }
+  .point h3 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .tag { font-family: var(--font-hanja); font-weight: 600; font-size: 0.92rem; color: var(--seal); }
+  .point p { font-family: var(--font-read); font-size: 1.02rem; line-height: 1.85; max-width: 64ch; }
+
+  /* 해마다 */
+  .years { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .year { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .year-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .year-num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .year-gz { font-family: var(--font-hanja); font-weight: 900; font-size: 1.5rem; letter-spacing: 0.04em; }
+  .year-gods { font-size: 0.8rem; color: var(--muted); }
+  .year p { font-family: var(--font-read); line-height: 1.75; }
+  .now { font-size: 0.72rem; color: var(--seal); border: 1px solid var(--seal); border-radius: 999px; padding: 0 8px; }
+
+  .habits { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; font-family: var(--font-read); font-size: 1.02rem; max-width: 64ch; }
+
+  /* 계산기 */
+  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
+  .tab {
+    font: inherit; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+    padding: 8px 12px; cursor: pointer; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--seal); font-weight: 600; }
+  .tab:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+  form { display: flex; flex-direction: column; gap: 14px; }
+  .person { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .person-title { grid-column: 1 / -1; font-family: var(--font-read); font-weight: 700; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label, .field .label { font-size: 0.8rem; color: var(--muted); }
+  input[type="text"], input[type="date"], input[type="time"], select {
+    font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; min-width: 0; width: 100%; box-sizing: border-box;
+  }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-weight: 600; background: var(--ink); color: var(--paper); border: 0; border-radius: 6px;
+    padding: 10px 18px; cursor: pointer;
+  }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .result { display: flex; flex-direction: column; gap: 16px; }
+  .result-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .sample { font-size: 0.75rem; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 1px 10px; }
+  .warn { font-size: 0.86rem; border-left: 3px solid var(--earth); padding: 6px 12px; background: var(--surface); }
+  .error { font-size: 0.9rem; color: var(--fire); }
+  .fortune-box { display: flex; flex-direction: column; gap: 8px; }
+  .fortune-box p { font-family: var(--font-read); line-height: 1.8; }
+  .fortune-box ul { margin: 0; padding-left: 1.2em; font-family: var(--font-read); }
+  .score { font-family: var(--font-hanja); font-weight: 900; font-size: 2.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+
+  .fine { font-size: 0.84rem; color: var(--muted); display: flex; flex-direction: column; gap: 6px; max-width: 70ch; }
+  .fine ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+  .fine a { color: var(--ink); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .seal { animation: stamp 0.5s ease-out both; }
+    @keyframes stamp { from { transform: rotate(-4deg) scale(1.25); opacity: 0.4; } to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+  }
+
+  /* 기운 보완 */
+  .remedy { display: flex; flex-direction: column; gap: 12px; }
+  .remedy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .remedy-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .remedy-head { display: flex; align-items: center; gap: 12px; }
+  .remedy-char { width: 44px; max-width: 44px; font-size: 1.5rem; border-radius: 6px; flex: none; }
+  .remedy-title { display: flex; flex-direction: column; min-width: 0; }
+  .remedy-meta { font-size: 0.8rem; color: var(--muted); letter-spacing: 0.02em; }
+  .remedy-label { font-size: 0.76rem; color: var(--muted); letter-spacing: 0.06em; margin-top: 4px; }
+  .remedy-card ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-read); line-height: 1.65; }
+  .empty-state { border: 1px dashed var(--line); border-radius: 10px; padding: 28px 20px; display: flex; flex-direction: column; gap: 6px; text-align: center; color: var(--muted); }
+  .empty-state strong { color: var(--ink); font-family: var(--font-read); font-size: 1.1rem; }
+
+  .page { gap: 32px; }
+  .intro { display: flex; flex-direction: column; gap: 6px; }
+  .intro h1 { font-size: clamp(1.8rem, 6vw, 2.4rem); }
+  .intro p { color: var(--muted); }
+  .inputs { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 18px; }
+  .person-title { display: flex; align-items: center; gap: 8px; }
+  .badge { font-family: var(--font-hanja); font-weight: 900; color: var(--seal); }
+  .toggle { display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--seal); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font: inherit; font-size: 0.88rem; background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .chip:focus-visible, .toggle input:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+  .compat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+  .compat-top { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .score-wrap { display: flex; flex-direction: column; gap: 6px; min-width: 180px; flex: 1; }
+  .scale { position: relative; height: 8px; border-radius: 999px; background: var(--line); }
+  .scale-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--seal); }
+  .scale-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .relations { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .rel { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .rel-label { font-size: 0.76rem; color: var(--muted); letter-spacing: 0.04em; }
+  .rel-value { font-family: var(--font-read); font-weight: 700; }
+  .rel p { font-family: var(--font-read); font-size: 0.95rem; line-height: 1.7; }
+  .person-result { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .person-result h3 .hanja { font-family: var(--font-hanja); font-weight: 900; letter-spacing: 0.04em; }
+</style>
+
+<main class="page">
+  <div class="intro">
+    <span class="eyebrow">四柱八字 · k-skill saju-fortune v0.2.0</span>
+    <h1>사주 궁합 계산기</h1>
+    <p>양력 생년월일을 넣으면 바로 사주와 부족한 기운 보완법이 나옵니다. 두 명을 함께 체크하면 궁합을 봅니다.</p>
+  </div>
+
+  <form class="inputs" id="form" novalidate>
+    <div class="person">
+      <span class="person-title"><span class="badge">甲</span> 첫 번째 사람</span>
+      <div class="field"><label for="a-name">이름 (선택)</label><input type="text" id="a-name" value="" placeholder="예: 홍길동"></div>
+      <div class="field"><label for="a-date">양력 생년월일</label><input type="date" id="a-date" value="" min="1900-01-01" max="2100-12-31"></div>
+      <div class="field"><label for="a-time">태어난 시간</label><input type="time" id="a-time" value="">
+        <label class="check" for="a-unknown"><input type="checkbox" id="a-unknown"> 시간 모름</label></div>
+      <div class="field"><label for="a-gender">성별 (엔진 필수 입력)</label>
+        <select id="a-gender"><option value="">선택</option><option value="female">여성</option><option value="male">남성</option></select></div>
+    </div>
+
+    <label class="toggle" for="pair"><input type="checkbox" id="pair"> 두 명 함께 보기 (궁합)</label>
+
+    <div class="person" id="b-fields" hidden>
+      <span class="person-title"><span class="badge">乙</span> 두 번째 사람</span>
+      <div class="field"><label for="b-name">이름 (선택)</label><input type="text" id="b-name" value="" placeholder="예: 성춘향"></div>
+      <div class="field"><label for="b-date">양력 생년월일</label><input type="date" id="b-date" value="" min="1900-01-01" max="2100-12-31"></div>
+      <div class="field"><label for="b-time">태어난 시간</label><input type="time" id="b-time" value="">
+        <label class="check" for="b-unknown"><input type="checkbox" id="b-unknown"> 시간 모름</label></div>
+      <div class="field"><label for="b-gender">성별 (엔진 필수 입력)</label>
+        <select id="b-gender"><option value="">선택</option><option value="female">여성</option><option value="male">남성</option></select></div>
+    </div>
+  </form>
+
+  <section class="result" id="result" aria-live="polite"></section>
+
+  <footer class="fine">
+    <span class="eyebrow">계산 근거와 한계</span>
+    <ul>
+      <li>사주팔자, 오행 분포, 일간 강약, 용신, 주제별 운세, 궁합 점수는 <a href="https://github.com/NomaDamas/k-skill" target="_blank" rel="noopener">k-skill</a>의 saju-fortune 패키지(v0.2.0, MIT)를 이 페이지 안에서 그대로 실행해 계산합니다. 입력한 정보는 어디에도 전송되지 않습니다.</li>
+      <li>엔진 궁합 점수는 기본 50점에서 공통으로 강한 오행(+8), 서로 보완하는 오행(+10), 같은 일간 오행(+8)을 더하는 방식이라 50점이 최저, 100점이 최고입니다. 일간 관계와 일지 합·충·원진은 엔진이 보지 않는 전통 궁합 요소를 참고로 덧붙인 것입니다.</li>
+      <li>절기는 고정 날짜, 시주는 정각 경계로 계산합니다. 경계에 가까운 입력에는 경고를 띄웁니다. 음력 생일은 양력으로 바꿔 입력하세요.</li>
+      <li>사주 풀이는 결정론이나 보장이 아닌 재미와 자기 점검용 전통 해석입니다.</li>
+    </ul>
+  </footer>
+</main>
+
+<script>
+/* saju-fortune v0.2.0 (MIT, NomaDamas/k-skill) */
+window.SajuFortune = (function () {
+  var factories = {"constants": function (module, exports, require) {
+const STEMS = [
+  { korean: "갑", hanja: "甲", element: "wood", elementKo: "목", yinYang: "yang" },
+  { korean: "을", hanja: "乙", element: "wood", elementKo: "목", yinYang: "yin" },
+  { korean: "병", hanja: "丙", element: "fire", elementKo: "화", yinYang: "yang" },
+  { korean: "정", hanja: "丁", element: "fire", elementKo: "화", yinYang: "yin" },
+  { korean: "무", hanja: "戊", element: "earth", elementKo: "토", yinYang: "yang" },
+  { korean: "기", hanja: "己", element: "earth", elementKo: "토", yinYang: "yin" },
+  { korean: "경", hanja: "庚", element: "metal", elementKo: "금", yinYang: "yang" },
+  { korean: "신", hanja: "辛", element: "metal", elementKo: "금", yinYang: "yin" },
+  { korean: "임", hanja: "壬", element: "water", elementKo: "수", yinYang: "yang" },
+  { korean: "계", hanja: "癸", element: "water", elementKo: "수", yinYang: "yin" }
+];
+
+const BRANCHES = [
+  { korean: "자", hanja: "子", animal: "쥐", element: "water", elementKo: "수", yinYang: "yang", hourLabel: "23:00-01:00" },
+  { korean: "축", hanja: "丑", animal: "소", element: "earth", elementKo: "토", yinYang: "yin", hourLabel: "01:00-03:00" },
+  { korean: "인", hanja: "寅", animal: "호랑이", element: "wood", elementKo: "목", yinYang: "yang", hourLabel: "03:00-05:00" },
+  { korean: "묘", hanja: "卯", animal: "토끼", element: "wood", elementKo: "목", yinYang: "yin", hourLabel: "05:00-07:00" },
+  { korean: "진", hanja: "辰", animal: "용", element: "earth", elementKo: "토", yinYang: "yang", hourLabel: "07:00-09:00" },
+  { korean: "사", hanja: "巳", animal: "뱀", element: "fire", elementKo: "화", yinYang: "yin", hourLabel: "09:00-11:00" },
+  { korean: "오", hanja: "午", animal: "말", element: "fire", elementKo: "화", yinYang: "yang", hourLabel: "11:00-13:00" },
+  { korean: "미", hanja: "未", animal: "양", element: "earth", elementKo: "토", yinYang: "yin", hourLabel: "13:00-15:00" },
+  { korean: "신", hanja: "申", animal: "원숭이", element: "metal", elementKo: "금", yinYang: "yang", hourLabel: "15:00-17:00" },
+  { korean: "유", hanja: "酉", animal: "닭", element: "metal", elementKo: "금", yinYang: "yin", hourLabel: "17:00-19:00" },
+  { korean: "술", hanja: "戌", animal: "개", element: "earth", elementKo: "토", yinYang: "yang", hourLabel: "19:00-21:00" },
+  { korean: "해", hanja: "亥", animal: "돼지", element: "water", elementKo: "수", yinYang: "yin", hourLabel: "21:00-23:00" }
+];
+
+const REQUIRED_INTERVIEW_FIELDS = ["birthDate", "birthTime", "gender"];
+const ANALYSIS_TYPES = new Set(["basic", "fortune", "yongsin", "school_compare", "yongsin_method"]);
+const FORTUNE_TYPES = new Set(["general", "career", "wealth", "health", "love"]);
+const GENDERS = new Set(["male", "female"]);
+const CALENDARS = new Set(["solar", "lunar"]);
+const UNSUPPORTED_LUNAR_CONVERSION_MESSAGE = "lunar calendar conversion is not supported without a verified manse calendar table. Enter a solar/Gregorian birthDate or convert the lunar date before analysis.";
+
+const ELEMENT_KO = {
+  wood: "목",
+  fire: "화",
+  earth: "토",
+  metal: "금",
+  water: "수"
+};
+
+const ELEMENT_LABELS = {
+  wood: "목(木)",
+  fire: "화(火)",
+  earth: "토(土)",
+  metal: "금(金)",
+  water: "수(水)"
+};
+
+const ELEMENT_CYCLE = ["wood", "fire", "earth", "metal", "water"];
+const UNKNOWN_TIME_LIMITATION = "태어난 시간이 없어 시주는 확정하지 않고 연·월·일 중심으로 보수적으로 해석합니다.";
+
+module.exports = {
+  ANALYSIS_TYPES,
+  BRANCHES,
+  CALENDARS,
+  ELEMENT_CYCLE,
+  ELEMENT_KO,
+  ELEMENT_LABELS,
+  FORTUNE_TYPES,
+  GENDERS,
+  REQUIRED_INTERVIEW_FIELDS,
+  STEMS,
+  UNKNOWN_TIME_LIMITATION,
+  UNSUPPORTED_LUNAR_CONVERSION_MESSAGE
+};
+
+},
+"input": function (module, exports, require) {
+const {
+  CALENDARS,
+  GENDERS,
+  REQUIRED_INTERVIEW_FIELDS,
+  UNSUPPORTED_LUNAR_CONVERSION_MESSAGE
+} = require("./constants");
+
+function getMissingInterviewFields(input = {}) {
+  return REQUIRED_INTERVIEW_FIELDS.filter((field) => !input[field]);
+}
+
+function normalizeBirthInput(input) {
+  if (!input || typeof input !== "object") {
+    throw new Error("birth input is required.");
+  }
+
+  const birthDate = normalizeString(input.birthDate);
+  const birthTime = normalizeString(input.birthTime);
+  const gender = normalizeString(input.gender);
+  const calendar = normalizeString(input.calendar) || "solar";
+
+  if (!birthDate) {
+    throw new Error("birthDate is required.");
+  }
+  if (!isValidDate(birthDate)) {
+    throw new Error("birthDate must be YYYY-MM-DD.");
+  }
+  if (birthTime && !isValidTime(birthTime)) {
+    throw new Error("birthTime must be HH:mm.");
+  }
+  if (!gender || !GENDERS.has(gender)) {
+    throw new Error("gender must be male or female.");
+  }
+  if (!CALENDARS.has(calendar)) {
+    throw new Error("calendar must be solar or lunar.");
+  }
+
+  return {
+    name: normalizeString(input.name) || undefined,
+    hanjaName: normalizeString(input.hanjaName) || undefined,
+    birthDate,
+    birthTime: birthTime || undefined,
+    calendar,
+    isLeapMonth: Boolean(input.isLeapMonth),
+    gender,
+    birthCity: normalizeString(input.birthCity) || undefined
+  };
+}
+
+function convertCalendar(args) {
+  const date = normalizeString(args.date);
+  const fromCalendar = normalizeString(args.fromCalendar);
+  const toCalendar = normalizeString(args.toCalendar);
+
+  if (!date || !isValidDate(date)) {
+    throw new Error("date must be YYYY-MM-DD.");
+  }
+  if (!CALENDARS.has(fromCalendar) || !CALENDARS.has(toCalendar)) {
+    throw new Error("fromCalendar and toCalendar must be solar or lunar.");
+  }
+
+  if (fromCalendar === toCalendar) {
+    return {
+      originalDate: date,
+      originalCalendar: fromCalendar,
+      convertedDate: date,
+      convertedCalendar: toCalendar,
+      isLeapMonth: Boolean(args.isLeapMonth),
+      note: "동일한 달력 체계라 변환하지 않았습니다."
+    };
+  }
+
+  throw new Error(UNSUPPORTED_LUNAR_CONVERSION_MESSAGE);
+}
+
+function rejectUnsupportedLunarInput(input) {
+  if (input.calendar === "lunar") {
+    throw new Error(UNSUPPORTED_LUNAR_CONVERSION_MESSAGE);
+  }
+}
+
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseDate(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return { year, month, day };
+}
+
+function parseTime(value) {
+  const [hour, minute] = value.split(":").map(Number);
+  return { hour, minute };
+}
+
+function isValidDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const { year, month, day } = parseDate(value);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function isValidTime(value) {
+  if (!/^\d{2}:\d{2}$/.test(value)) {
+    return false;
+  }
+  const { hour, minute } = parseTime(value);
+  return hour >= 0 && hour < 24 && minute >= 0 && minute < 60;
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+module.exports = {
+  convertCalendar,
+  getMissingInterviewFields,
+  normalizeBirthInput,
+  normalizeString,
+  parseDate,
+  parseTime,
+  rejectUnsupportedLunarInput,
+  todayIsoDate
+};
+
+},
+"pillars": function (module, exports, require) {
+const { BRANCHES, STEMS } = require("./constants");
+
+function calculatePillars(dateParts, timeParts) {
+  const year = calculateYearPillar(dateParts);
+  const month = calculateMonthPillar(dateParts, year);
+  const day = calculateDayPillar(dateParts);
+  const hour = timeParts ? calculateHourPillar(timeParts, day) : null;
+
+  return { year, month, day, hour };
+}
+
+function calculateYearPillar({ year, month, day }) {
+  const sajuYear = month < 2 || (month === 2 && day < 4) ? year - 1 : year;
+  return makePillar(mod(sajuYear - 4, 10), mod(sajuYear - 4, 12));
+}
+
+function calculateMonthPillar({ month, day }, yearPillar) {
+  const monthIndex = getSolarTermMonthIndex(month, day);
+  const branchIndex = mod(monthIndex + 2, 12);
+  const yearStemIndex = yearPillar.stemIndex;
+  let monthStemStart;
+
+  if (yearStemIndex === 0 || yearStemIndex === 5) {
+    monthStemStart = 2;
+  } else if (yearStemIndex === 1 || yearStemIndex === 6) {
+    monthStemStart = 4;
+  } else if (yearStemIndex === 2 || yearStemIndex === 7) {
+    monthStemStart = 6;
+  } else if (yearStemIndex === 3 || yearStemIndex === 8) {
+    monthStemStart = 8;
+  } else {
+    monthStemStart = 0;
+  }
+
+  const monthOffset = branchIndex >= 2 ? branchIndex - 2 : branchIndex + 10;
+  return makePillar(mod(monthStemStart + monthOffset, 10), branchIndex);
+}
+
+function calculateDayPillar({ year, month, day }) {
+  const base = Date.UTC(1900, 0, 1, 12);
+  const birth = Date.UTC(year, month - 1, day, 12);
+  const diffDays = Math.round((birth - base) / 86400000);
+
+  return makePillar(mod(diffDays, 10), mod(10 + diffDays, 12));
+}
+
+function calculateHourPillar({ hour }, dayPillar) {
+  const branchIndex = hour >= 23 || hour < 1 ? 0 : Math.floor((hour + 1) / 2);
+  const stemIndex = mod(dayPillar.stemIndex * 2 + branchIndex, 10);
+
+  return makePillar(stemIndex, branchIndex);
+}
+
+function makePillar(stemIndex, branchIndex) {
+  const stem = STEMS[stemIndex];
+  const branch = BRANCHES[branchIndex];
+
+  return {
+    label: `${stem.korean}${branch.korean}`,
+    hanja: `${stem.hanja}${branch.hanja}`,
+    stem: stem.korean,
+    stemHanja: stem.hanja,
+    stemElement: stem.element,
+    stemElementKo: stem.elementKo,
+    branch: branch.korean,
+    branchHanja: branch.hanja,
+    branchAnimal: branch.animal,
+    branchElement: branch.element,
+    branchElementKo: branch.elementKo,
+    yinYang: stem.yinYang,
+    stemIndex,
+    branchIndex
+  };
+}
+
+function getSolarTermMonthIndex(month, day) {
+  const starts = [
+    [2, 4],
+    [3, 6],
+    [4, 5],
+    [5, 6],
+    [6, 6],
+    [7, 7],
+    [8, 8],
+    [9, 8],
+    [10, 8],
+    [11, 7],
+    [12, 7],
+    [1, 6]
+  ];
+  const value = month * 100 + day;
+
+  for (let index = 10; index >= 0; index -= 1) {
+    const [startMonth, startDay] = starts[index];
+    if (value >= startMonth * 100 + startDay) {
+      return index;
+    }
+  }
+
+  return 11;
+}
+
+function mod(value, divisor) {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+module.exports = {
+  calculatePillars,
+  clamp,
+  mod
+};
+
+},
+"readings": function (module, exports, require) {
+const {
+  BRANCHES,
+  ELEMENT_CYCLE,
+  ELEMENT_KO,
+  ELEMENT_LABELS,
+  STEMS,
+  UNKNOWN_TIME_LIMITATION
+} = require("./constants");
+const { getMissingInterviewFields, normalizeString } = require("./input");
+const { clamp, mod } = require("./pillars");
+
+function countFiveElements(pillars) {
+  const counts = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
+
+  for (const pillar of Object.values(pillars)) {
+    if (!pillar) {
+      continue;
+    }
+    counts[pillar.stemElement] += 1;
+    counts[pillar.branchElement] += 1;
+  }
+
+  return counts;
+}
+
+function getDominantElements(counts) {
+  const max = Math.max(...Object.values(counts));
+  return ELEMENT_CYCLE.filter((element) => counts[element] === max && max > 0);
+}
+
+function getWeakElements(counts) {
+  const min = Math.min(...Object.values(counts));
+  return ELEMENT_CYCLE.filter((element) => counts[element] === min);
+}
+
+function estimateDayMasterStrength(pillars, counts) {
+  const dayElement = pillars.day.stemElement;
+  const supporting = counts[dayElement] + counts[getGeneratingElement(dayElement)] * 0.7;
+
+  if (supporting >= 3.5) {
+    return "strong";
+  }
+  if (supporting <= 1.5) {
+    return "weak";
+  }
+  return "balanced";
+}
+
+function selectUsefulElements(dayMaster, counts) {
+  const weakElements = getWeakElements(counts);
+  const controlling = getControllingElement(dayMaster.element);
+  const generated = getGeneratedElement(dayMaster.element);
+  const primary = dayMaster.strength === "strong" ? controlling : getGeneratingElement(dayMaster.element);
+  const secondary = weakElements.includes(generated) ? generated : weakElements[0];
+
+  return {
+    primary,
+    primaryKo: formatElement(primary),
+    secondary,
+    secondaryKo: formatElement(secondary),
+    reasoning: `${dayMaster.elementKo} 일간의 강약과 오행 분포를 함께 보아 ${formatElement(primary)} 기운을 우선 조율점으로 둡니다.`
+  };
+}
+
+function buildFortuneReading(result, fortuneType, targetYear) {
+  const dominant = result.dominantElements.map(formatElement).join(", ");
+  const weak = result.weakElements.map(formatElement).join(", ");
+  const topicMap = {
+    general: {
+      label: "종합운",
+      summary: `${dominant} 기운이 강하게 드러나므로 장점은 살리고 부족한 ${weak} 기운을 생활 루틴으로 보완하는 해석이 좋습니다.`,
+      guidance: ["강한 기운이 과해지는 상황을 먼저 살핍니다.", "부족한 오행을 사람·환경·습관으로 보완합니다."]
+    },
+    career: {
+      label: "직업운",
+      summary: `${result.dayMaster.elementKo} 일간은 책임의 중심을 잡을 때 직업운이 안정됩니다. 강한 ${dominant} 기운을 성과 언어로 바꾸는 전략이 좋습니다.`,
+      guidance: ["역할과 책임 범위를 명확히 잡으세요.", "성과 기록과 피드백 주기를 짧게 두세요."]
+    },
+    wealth: {
+      label: "재물운",
+      summary: `재물운은 강한 ${dominant} 기운을 현금흐름 규칙으로 묶을 때 좋아집니다. 충동적 확장보다 반복 가능한 저축·투자 원칙이 핵심입니다.`,
+      guidance: ["큰 결정보다 반복 가능한 예산 규칙을 먼저 세우세요.", "수입원과 지출 항목을 분리해 흐름을 보세요."]
+    },
+    health: {
+      label: "건강운",
+      summary: `건강운은 부족한 ${weak} 기운을 보완하는 수면, 식사, 움직임의 균형에서 봅니다. 사주 해석은 의료 진단을 대신하지 않습니다.`,
+      guidance: ["무리한 해석보다 컨디션 기록을 우선하세요.", "증상이 있으면 의료 전문가에게 확인하세요."]
+    },
+    love: {
+      label: "연애운",
+      summary: `연애운은 관계에서 표현의 속도와 안정감을 맞추는 쪽으로 풀이합니다. 강한 ${dominant} 기운은 매력이지만 과하면 고집으로 보일 수 있습니다.`,
+      guidance: ["호감 표현은 선명하게, 결론은 천천히 잡으세요.", "상대의 반응 속도를 존중하면 관계 안정감이 커집니다."]
+    }
+  };
+  const caveats = ["사주 풀이는 결정론이나 보장이 아니라 자기점검을 돕는 전통 해석입니다."];
+
+  if (result.timeAccuracy === "unknown") {
+    caveats.push(UNKNOWN_TIME_LIMITATION);
+  }
+
+  return {
+    type: fortuneType,
+    label: topicMap[fortuneType].label,
+    targetYear: targetYear ? Number(targetYear) : undefined,
+    summary: topicMap[fortuneType].summary,
+    guidance: topicMap[fortuneType].guidance,
+    caveat: caveats.join(" ")
+  };
+}
+
+function buildInterviewState(input) {
+  return {
+    missingFields: getMissingInterviewFields(input),
+    optionalFields: ["name", "hanjaName", "calendar", "isLeapMonth", "birthCity", "topic"],
+    suggestedQuestions: [
+      "양력/음력, 생년월일, 태어난 시간을 알려주세요.",
+      "성별과 태어난 시군구를 알려주면 경도 보정을 더 보수적으로 반영할 수 있어요.",
+      "연애운, 재물운, 직업운, 건강운, 한해 운세 중 무엇을 먼저 볼까요?"
+    ]
+  };
+}
+
+function buildReadingGuide() {
+  return [
+    "먼저 사주팔자와 오행 분포를 짧게 확인한다.",
+    "사용자가 고른 주제에 맞춰 강한 기운과 부족한 기운을 연결한다.",
+    "단정 대신 가능성, 주의점, 실천 조언을 구분해 말한다.",
+    "건강·투자·관계의 중대 결정은 전문가 판단을 대신하지 않는다고 밝힌다."
+  ];
+}
+
+function buildYongsinReading(result) {
+  return `${result.yongsin.primaryKo}을 우선 조율점으로 보고, ${result.yongsin.secondaryKo}을 보조 기운으로 삼아 과한 기운을 누그러뜨리는 흐름입니다.`;
+}
+
+function buildSchoolComparison(result) {
+  return [
+    { school: "ziping", summary: `${result.dayMaster.elementKo} 일간과 월지를 중심으로 강약을 봅니다.` },
+    { school: "modern", summary: "현대 해석에서는 성향, 관계, 실행 습관으로 번역해 안내합니다." },
+    { school: "shensha", summary: "신살은 보조 단서로만 사용하고 핵심 판단을 대체하지 않습니다." }
+  ];
+}
+
+function buildDaeUn(result, args) {
+  const limit = clamp(Number(args.limit || 10), 1, 12);
+  const startAge = result.input.gender === "male" ? 7 : 8;
+  const cycles = [];
+
+  for (let index = 0; index < limit; index += 1) {
+    const age = startAge + index * 10;
+    const stem = STEMS[mod(result.pillars.month.stemIndex + index + 1, 10)];
+    const branch = BRANCHES[mod(result.pillars.month.branchIndex + index + 1, 12)];
+    cycles.push({ age, label: `${stem.korean}${branch.korean}`, hanja: `${stem.hanja}${branch.hanja}` });
+  }
+
+  return { input: result.input, cycles, note: "대운 시작 나이는 로컬 근사값입니다. 정밀 해석은 절기 기준 계산과 함께 보수적으로 안내하세요." };
+}
+
+function buildPeriodFortune(result, args) {
+  const periodType = normalizeString(args.periodType) || "year";
+  return {
+    input: result.input,
+    periodType,
+    target: normalizeString(args.target) || String(new Date().getFullYear()),
+    fortune: buildFortuneReading(result, "general", args.target),
+    note: "기간운은 기본 사주 구조에 해당 기간의 질문 맥락을 덧붙여 대화형으로 풀이하세요."
+  };
+}
+
+function summarizePerson(result) {
+  return {
+    name: result.input.name,
+    dayMaster: result.dayMaster,
+    dominantElements: result.dominantElements,
+    weakElements: result.weakElements,
+    timeAccuracy: result.timeAccuracy,
+    pillars: {
+      year: result.pillars.year.label,
+      month: result.pillars.month.label,
+      day: result.pillars.day.label,
+      hour: result.pillars.hour ? result.pillars.hour.label : null
+    }
+  };
+}
+
+function getGeneratingElement(element) {
+  return ELEMENT_CYCLE[mod(ELEMENT_CYCLE.indexOf(element) - 1, ELEMENT_CYCLE.length)];
+}
+
+function getGeneratedElement(element) {
+  return ELEMENT_CYCLE[mod(ELEMENT_CYCLE.indexOf(element) + 1, ELEMENT_CYCLE.length)];
+}
+
+function getControllingElement(element) {
+  const map = { wood: "metal", fire: "water", earth: "wood", metal: "fire", water: "earth" };
+  return map[element];
+}
+
+function formatElement(element) {
+  return ELEMENT_LABELS[element] || element;
+}
+
+module.exports = {
+  buildDaeUn,
+  buildFortuneReading,
+  buildInterviewState,
+  buildPeriodFortune,
+  buildReadingGuide,
+  buildSchoolComparison,
+  buildYongsinReading,
+  countFiveElements,
+  estimateDayMasterStrength,
+  formatElement,
+  getDominantElements,
+  getWeakElements,
+  selectUsefulElements,
+  summarizePerson
+};
+
+},
+"index": function (module, exports, require) {
+const {
+  ANALYSIS_TYPES,
+  ELEMENT_CYCLE,
+  ELEMENT_KO,
+  FORTUNE_TYPES,
+  UNKNOWN_TIME_LIMITATION
+} = require("./constants");
+const {
+  convertCalendar,
+  getMissingInterviewFields,
+  normalizeBirthInput,
+  normalizeString,
+  parseDate,
+  parseTime,
+  rejectUnsupportedLunarInput,
+  todayIsoDate
+} = require("./input");
+const { calculatePillars, clamp } = require("./pillars");
+const {
+  buildDaeUn,
+  buildFortuneReading,
+  buildInterviewState,
+  buildPeriodFortune,
+  buildReadingGuide,
+  buildSchoolComparison,
+  buildYongsinReading,
+  countFiveElements,
+  estimateDayMasterStrength,
+  formatElement,
+  getDominantElements,
+  getWeakElements,
+  selectUsefulElements,
+  summarizePerson
+} = require("./readings");
+
+function analyzeSaju(birthInput, options = {}) {
+  const input = normalizeBirthInput(birthInput);
+  const analysisType = normalizeString(options.analysisType) || "basic";
+  const fortuneType = normalizeString(options.fortuneType) || "general";
+
+  if (!ANALYSIS_TYPES.has(analysisType)) {
+    throw new Error("analysisType must be basic, fortune, yongsin, school_compare, or yongsin_method.");
+  }
+  if (analysisType === "fortune" && !FORTUNE_TYPES.has(fortuneType)) {
+    throw new Error("fortuneType must be general, career, wealth, health, or love.");
+  }
+  rejectUnsupportedLunarInput(input);
+
+  const dateParts = parseDate(input.birthDate);
+  const timeParts = input.birthTime ? parseTime(input.birthTime) : null;
+  const pillars = calculatePillars(dateParts, timeParts);
+  const fiveElements = countFiveElements(pillars);
+  const dominantElements = getDominantElements(fiveElements);
+  const weakElements = getWeakElements(fiveElements);
+  const timeAccuracy = input.birthTime ? "known" : "unknown";
+  const dayMaster = {
+    stem: pillars.day.stem,
+    element: pillars.day.stemElement,
+    elementKo: ELEMENT_KO[pillars.day.stemElement],
+    yinYang: pillars.day.yinYang,
+    strength: estimateDayMasterStrength(pillars, fiveElements)
+  };
+
+  const result = {
+    input,
+    pillars,
+    timeAccuracy,
+    limitations: timeAccuracy === "unknown" ? [UNKNOWN_TIME_LIMITATION] : [],
+    dayMaster,
+    fiveElements,
+    dominantElements,
+    weakElements,
+    yongsin: selectUsefulElements(dayMaster, fiveElements),
+    interview: buildInterviewState(input),
+    readingGuide: buildReadingGuide(),
+    sources: ["saju-fortune-local-calculation", "fortuneteller-mcp-tool-model"]
+  };
+
+  if (analysisType === "fortune") {
+    result.fortune = buildFortuneReading(result, fortuneType, options.targetYear);
+  } else if (analysisType === "yongsin" || analysisType === "yongsin_method") {
+    result.yongsin.analysis = buildYongsinReading(result);
+  } else if (analysisType === "school_compare") {
+    result.schoolComparison = buildSchoolComparison(result);
+  }
+
+  return result;
+}
+
+function callSajuTool(name, args = {}) {
+  switch (name) {
+    case "analyze_saju":
+      return analyzeSaju(args, args);
+    case "check_compatibility":
+      return checkCompatibility(args);
+    case "get_daily_fortune":
+      return {
+        ...analyzeSaju(args, { analysisType: "fortune", fortuneType: "general" }),
+        targetDate: normalizeString(args.targetDate) || todayIsoDate()
+      };
+    case "get_dae_un":
+      return buildDaeUn(analyzeSaju(args), args);
+    case "get_fortune_by_period":
+      return buildPeriodFortune(analyzeSaju(args), args);
+    case "convert_calendar":
+      return convertCalendar(args);
+    case "manage_settings":
+      return {
+        preset: normalizeString(args.preset) || "balanced",
+        note: "saju-fortune는 로컬 패키지이므로 MCP 서버 설정을 저장하지 않습니다."
+      };
+    default:
+      throw new Error(`Unknown saju tool: ${name}`);
+  }
+}
+
+function checkCompatibility(args) {
+  if (!args || !args.person1 || !args.person2) {
+    throw new Error("person1 and person2 are required.");
+  }
+
+  const first = analyzeSaju(args.person1);
+  const second = analyzeSaju(args.person2);
+  const shared = ELEMENT_CYCLE.filter((element) => first.dominantElements.includes(element) && second.dominantElements.includes(element));
+  const complementary = ELEMENT_CYCLE.filter((element) => first.weakElements.includes(element) && second.dominantElements.includes(element));
+  const reverseComplementary = ELEMENT_CYCLE.filter((element) => second.weakElements.includes(element) && first.dominantElements.includes(element));
+  const sameDayElement = first.dayMaster.element === second.dayMaster.element;
+  const score = clamp(
+    50 + shared.length * 8 + (complementary.length + reverseComplementary.length) * 10 + (sameDayElement ? 8 : 0),
+    0,
+    100
+  );
+  const focusAreas = buildCompatibilityFocusAreas(shared, complementary, reverseComplementary);
+
+  return {
+    people: [summarizePerson(first), summarizePerson(second)],
+    score,
+    sharedElements: shared,
+    complementaryElements: [...new Set([...complementary, ...reverseComplementary])],
+    focusAreas,
+    summary: `두 사람의 궁합은 ${score}점 수준으로, 관계의 장점과 조율 포인트를 함께 보는 해석이 적절합니다.`,
+    sources: ["saju-fortune-local-calculation", "fortuneteller-mcp-tool-model"]
+  };
+}
+
+function buildCompatibilityFocusAreas(shared, complementary, reverseComplementary) {
+  const focusAreas = [];
+  if (shared.length) {
+    focusAreas.push(`공통으로 강한 ${shared.map(formatElement).join(", ")} 기운은 공감대가 되지만 고집도 같이 커질 수 있습니다.`);
+  }
+  if (complementary.length || reverseComplementary.length) {
+    focusAreas.push("서로 부족한 오행을 보완하는 지점이 있어 역할 분담을 의식하면 관계가 안정됩니다.");
+  }
+  if (!focusAreas.length) {
+    focusAreas.push("두 사주의 중심 기운이 달라 속도와 표현 방식을 맞추는 대화가 중요합니다.");
+  }
+  focusAreas.push("궁합은 결정론이 아니라 관계를 돌아보는 대화 재료로만 사용하세요.");
+  return focusAreas;
+}
+
+module.exports = {
+  analyzeSaju,
+  callSajuTool,
+  checkCompatibility,
+  getMissingInterviewFields,
+  normalizeBirthInput
+};
+
+}};
+  var cache = {};
+  function load(name) {
+    var key = name.replace(/^\.\//, "");
+    if (!cache[key]) {
+      var module = { exports: {} };
+      cache[key] = module;
+      factories[key](module, module.exports, load);
+    }
+    return cache[key].exports;
+  }
+  return load("index");
+})();
+// 명식표·오행 분포·엔진 결과를 그리는 공통 코드. 페이지마다 window.SajuView로 쓴다.
+window.SajuView = (function () {
+  var Saju = window.SajuFortune;
+  var CYCLE = ["wood", "fire", "earth", "metal", "water"];
+  var EL_LABEL = { wood: "목 木", fire: "화 火", earth: "토 土", metal: "금 金", water: "수 水" };
+  var EL_KO = { wood: "목(木)", fire: "화(火)", earth: "토(土)", metal: "금(金)", water: "수(水)" };
+  var STRENGTH = { strong: "강함", balanced: "중화", weak: "약함" };
+  // 지지의 본기(정기) 천간 인덱스: 子癸 丑己 寅甲 卯乙 辰戊 巳丙 午丁 未己 申庚 酉辛 戌戊 亥壬
+  var BONGI = [9, 5, 0, 1, 4, 2, 3, 5, 6, 7, 4, 8];
+  var GODS = [["비견", "겁재"], ["식신", "상관"], ["편재", "정재"], ["편관", "정관"], ["편인", "정인"]];
+  var COLUMNS = [["hour", "시주 時"], ["day", "일주 日"], ["month", "월주 月"], ["year", "연주 年"]];
+  // 엔진이 쓰는 절입 고정일 (입춘부터)
+  var TERMS = [[2, 4, "입춘"], [3, 6, "경칩"], [4, 5, "청명"], [5, 6, "입하"], [6, 6, "망종"], [7, 7, "소서"],
+    [8, 8, "입추"], [9, 8, "백로"], [10, 8, "한로"], [11, 7, "입동"], [12, 7, "대설"], [1, 6, "소한"]];
+
+  function tenGod(dayStem, otherStem) {
+    var rel = (Math.floor(otherStem / 2) - Math.floor(dayStem / 2) + 5) % 5;
+    return GODS[rel][dayStem % 2 === otherStem % 2 ? 0 : 1];
+  }
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function renderChart(target, result) {
+    target.textContent = "";
+    var dayStem = result.pillars.day.stemIndex;
+    COLUMNS.forEach(function (col) {
+      var p = result.pillars[col[0]];
+      var box = el("div", "pillar" + (col[0] === "day" ? " is-day" : ""));
+      box.appendChild(el("span", "pillar-label", col[1]));
+      if (!p) {
+        box.appendChild(el("span", "god", ""));
+        box.appendChild(el("div", "char empty", "시간 모름"));
+        box.appendChild(el("div", "char empty", "—"));
+        box.appendChild(el("span", "god", ""));
+        box.appendChild(el("span", "sub", ""));
+        target.appendChild(box);
+        return;
+      }
+      box.appendChild(el("span", "god stem-god", col[0] === "day" ? "일간 · 나" : tenGod(dayStem, p.stemIndex)));
+      var stem = el("div", "char " + p.stemElement, p.stemHanja);
+      stem.setAttribute("aria-label", p.stem + " " + p.stemElementKo);
+      box.appendChild(stem);
+      var branch = el("div", "char " + p.branchElement, p.branchHanja);
+      branch.setAttribute("aria-label", p.branch + " " + p.branchElementKo);
+      box.appendChild(branch);
+      box.appendChild(el("span", "god", tenGod(dayStem, BONGI[p.branchIndex])));
+      box.appendChild(el("span", "sub", p.label + " · " + p.branchAnimal));
+      target.appendChild(box);
+    });
+  }
+
+  function renderElements(target, result) {
+    target.textContent = "";
+    var total = 0;
+    CYCLE.forEach(function (k) { total += result.fiveElements[k]; });
+    CYCLE.forEach(function (k) {
+      var n = result.fiveElements[k];
+      var row = el("div", "el-row " + k + (n === 0 ? " zero" : ""));
+      row.appendChild(el("span", "el-name", EL_LABEL[k]));
+      var dots = el("span", "el-dots");
+      for (var i = 0; i < total; i += 1) dots.appendChild(el("span", "dot" + (i < n ? " on" : "")));
+      row.appendChild(dots);
+      row.appendChild(el("span", "el-count", n + "/" + total));
+      row.setAttribute("aria-label", EL_KO[k] + " " + n + "개");
+      target.appendChild(row);
+    });
+  }
+
+  function kv(target, label, value) {
+    var wrap = el("div", "kv");
+    wrap.appendChild(el("dt", null, label));
+    wrap.appendChild(el("dd", null, value));
+    target.appendChild(wrap);
+  }
+
+  function renderEngine(target, result) {
+    target.textContent = "";
+    var dm = result.dayMaster;
+    kv(target, "일간", result.pillars.day.stemHanja + " " + dm.elementKo + " · " + (dm.yinYang === "yang" ? "양" : "음"));
+    kv(target, "일간 강약", STRENGTH[dm.strength] || dm.strength);
+    kv(target, "강한 기운", result.dominantElements.map(function (k) { return EL_KO[k]; }).join(", "));
+    kv(target, "약한 기운", result.weakElements.map(function (k) { return EL_KO[k]; }).join(", "));
+    kv(target, "용신 1순위", result.yongsin.primaryKo);
+    kv(target, "용신 2순위", result.yongsin.secondaryKo);
+    var q = el("p", "engine-quote", result.yongsin.reasoning + " " + (result.fortune ? result.fortune.summary : ""));
+    target.appendChild(q);
+  }
+
+  function boundaryWarnings(date, time) {
+    var out = [];
+    var parts = date.split("-").map(Number);
+    var y = parts[0], m = parts[1], d = parts[2];
+    var birth = Date.UTC(y, m - 1, d);
+    TERMS.forEach(function (t) {
+      var diff = Math.abs(birth - Date.UTC(y, t[0] - 1, t[1])) / 86400000;
+      if (diff <= 1) {
+        out.push("생일이 " + t[2] + " 절입일(엔진 기준 " + t[0] + "월 " + t[1] + "일) 근처입니다. 실제 절입 시각에 따라 월주" +
+          (t[2] === "입춘" ? "와 연주" : "") + "가 달라질 수 있으니 만세력으로 한 번 더 확인하세요.");
+      }
+    });
+    if (time) {
+      var hm = time.split(":").map(Number);
+      if (hm[0] % 2 === 1 && hm[1] < 30) {
+        out.push("태어난 시간이 시진 경계 직후입니다. 한국식 30분 보정 경계를 쓰면 시주가 바로 앞 시로 바뀝니다.");
+      }
+      if (hm[0] === 23) {
+        out.push("23시대 출생은 학파에 따라 다음 날 일주로 보기도 합니다(야자시·조자시). 엔진은 당일 일주로 계산합니다.");
+      }
+    }
+    return out;
+  }
+
+  // 오행별 전통 대응(색·방향·계절·맛)과 생활 속 보완법, 그 기운이 넘칠 때 조심할 점
+  var REMEDY = {
+    wood: {
+      meta: "초록·청색 · 동쪽 · 봄 · 신맛",
+      habits: ["아침 일찍 일어나 햇빛 아래 20분 걷기", "화분이나 텃밭 등 식물 가꾸기", "새 계획을 세우고 작게라도 시작하기", "스트레칭이나 요가로 몸을 늘이기"],
+      foods: ["시금치, 브로콜리, 미나리 같은 푸른 잎채소", "매실, 레몬, 식초를 곁들인 신맛 음식", "새싹채소, 쑥갓"],
+      caution: ["조급함과 고집이 커지기 쉬우니 결정 전에 하루 묵히기", "화를 참다 한꺼번에 터뜨리지 않도록 그때그때 말하기", "신맛을 과하게 먹어 속이 쓰리지 않게 주의하기"]
+    },
+    fire: {
+      meta: "붉은색 · 남쪽 · 여름 · 쓴맛",
+      habits: ["낮에 햇볕을 쬐고 땀이 날 만큼 유산소 운동하기", "사람을 만나고 생각을 말로 표현하기", "밝은 조명과 따뜻한 색의 공간 만들기"],
+      foods: ["토마토, 붉은 파프리카, 대추", "쑥, 도라지, 녹차 같은 쌉쌀한 음식을 적당히", "차가운 음식보다 따뜻하게 익힌 음식"],
+      caution: ["맵고 뜨거운 자극적인 음식, 커피와 술을 줄이기", "늦은 밤 화면을 멀리하고 잠을 충분히 자기", "흥분하거나 조급해질 때 한 박자 쉬고 말하기"]
+    },
+    earth: {
+      meta: "노랑·갈색 · 중앙 · 환절기 · 단맛",
+      habits: ["식사 시간을 일정하게 지키기", "책상과 집을 주기적으로 정리하기", "흙길 산책이나 텃밭처럼 땅을 밟고 만지는 활동", "하루 루틴을 정해 반복하기"],
+      foods: ["단호박, 고구마, 감자", "현미와 잡곡밥", "꿀이나 대추처럼 자연스러운 단맛을 조금"],
+      caution: ["단 음식, 밀가루, 야식과 과식을 줄이기", "걱정과 생각이 많아질 때 종이에 적고 하나씩 지우기", "익숙한 방식만 고집하지 않기"]
+    },
+    metal: {
+      meta: "흰색·은색 · 서쪽 · 가을 · 매운맛",
+      habits: ["필요 없는 물건을 버리고 공간을 비우기", "마감을 정해 결과물을 끝까지 내보내기", "깊은 호흡 운동과 맑은 공기 속 산책", "생각을 글이나 말로 정리해 밖으로 꺼내기"],
+      foods: ["무, 도라지, 배, 연근 같은 흰 음식", "양파, 마늘, 생강을 요리에 적당히", "흰콩, 두부"],
+      caution: ["너무 맵거나 건조한 음식을 줄이고 실내 습도 챙기기", "말이 날카로워지거나 완벽주의로 흐르지 않게 주의하기", "남과 나를 지나치게 평가하지 않기"]
+    },
+    water: {
+      meta: "검정·남색 · 북쪽 · 겨울 · 짠맛",
+      habits: ["물을 자주 나눠 마시기", "잠자는 시간을 충분히 확보하기", "명상이나 혼자 조용히 생각하는 시간 갖기", "수영, 반신욕, 물가 산책"],
+      foods: ["검은콩, 검은깨, 흑미", "미역, 다시마, 김 같은 해조류", "블루베리, 가지 같은 검푸른 음식"],
+      caution: ["짠 음식과 국물, 차가운 음식과 과음을 줄이기", "걱정과 불안이 커질 때 몸을 움직여 흐름 바꾸기", "결정을 미루기만 하지 않도록 기한 정하기"]
+    }
+  };
+
+  function remedyPlan(result) {
+    var counts = result.fiveElements;
+    var fill = [];
+    function add(k, why) {
+      if (!fill.some(function (f) { return f.key === k; })) fill.push({ key: k, why: why });
+      else fill.forEach(function (f) { if (f.key === k) f.why += " · " + why; });
+    }
+    add(result.yongsin.primary, "엔진 용신 1순위");
+    result.weakElements.slice(0, 2).forEach(function (k) {
+      add(k, counts[k] === 0 ? "원국에 없음" : "원국에서 가장 적음 (" + counts[k] + "개)");
+    });
+    var reduce = result.dominantElements
+      .filter(function (k) { return !fill.some(function (f) { return f.key === k; }); })
+      .map(function (k) { return { key: k, why: "원국에서 가장 많음 (" + counts[k] + "개)" }; });
+    return { fill: fill.slice(0, 3), reduce: reduce };
+  }
+
+  function remedyCard(item, mode) {
+    var data = REMEDY[item.key];
+    var card = el("article", "remedy-card " + item.key);
+    var head = el("div", "remedy-head");
+    head.appendChild(el("span", "char remedy-char " + item.key, EL_LABEL[item.key].split(" ")[1]));
+    var title = el("div", "remedy-title");
+    title.appendChild(el("h3", null, EL_KO[item.key] + (mode === "fill" ? " 채우기" : " 덜어내기")));
+    title.appendChild(el("span", "sub", item.why));
+    head.appendChild(title);
+    card.appendChild(head);
+    card.appendChild(el("p", "remedy-meta", data.meta));
+    var groups = mode === "fill" ? [["생활 습관", data.habits], ["가까이할 음식", data.foods]] : [["조심할 것", data.caution]];
+    groups.forEach(function (g) {
+      card.appendChild(el("span", "remedy-label", g[0]));
+      var ul = el("ul");
+      g[1].forEach(function (t) { ul.appendChild(el("li", null, t)); });
+      card.appendChild(ul);
+    });
+    return card;
+  }
+
+  function renderRemedy(target, result) {
+    target.textContent = "";
+    var plan = remedyPlan(result);
+    var grid = el("div", "remedy-grid");
+    plan.fill.forEach(function (f) { grid.appendChild(remedyCard(f, "fill")); });
+    plan.reduce.forEach(function (r) { grid.appendChild(remedyCard(r, "reduce")); });
+    target.appendChild(grid);
+    target.appendChild(el("p", "chart-note", "색, 방향, 맛, 음식은 오행의 전통적인 대응을 생활에 옮긴 제안입니다. 의학적 처방이 아니므로 질환이 있거나 약을 먹고 있거나 알레르기가 있다면 식단은 전문가와 상의하세요."));
+  }
+
+  return { Saju: Saju, EL_KO: EL_KO, el: el, tenGod: tenGod, renderChart: renderChart, renderElements: renderElements, renderEngine: renderEngine, renderRemedy: renderRemedy, boundaryWarnings: boundaryWarnings };
+})();
+
+</script>
+<script>
+(function () {
+  var V = window.SajuView;
+  var Saju = V.Saju, el = V.el;
+  var STORE_KEY = "saju-app-inputs-v2";
+  var TOPICS = [["general", "종합운"], ["love", "연애운"], ["wealth", "재물운"], ["career", "직업운"], ["health", "건강운"]];
+  var topic = "general";
+  var resultBox = document.getElementById("result");
+  var pairBox = document.getElementById("pair");
+  var bFields = document.getElementById("b-fields");
+  var ids = ["a-name", "a-date", "a-time", "a-unknown", "a-gender", "b-name", "b-date", "b-time", "b-unknown", "b-gender", "pair"];
+
+  // 일간끼리: 상대 일간이 나에게 어떤 십신인지로 관계를 설명한다
+  var STEM_REL = {
+    "비견": "같은 오행이라 대등한 동료처럼 통합니다.", "겁재": "같은 오행이라 대등한 동료처럼 통합니다.",
+    "식신": "내가 상대를 생해 주는 관계입니다. 챙겨 주는 쪽이 됩니다.", "상관": "내가 상대를 생해 주는 관계입니다. 챙겨 주는 쪽이 됩니다.",
+    "편재": "내가 상대를 극하는 관계입니다. 내가 이끄는 쪽이 되기 쉽습니다.", "정재": "내가 상대를 극하는 관계입니다. 내가 이끄는 쪽이 되기 쉽습니다.",
+    "편관": "상대가 나를 극하는 관계입니다. 상대가 이끄는 쪽이 되기 쉽습니다.", "정관": "상대가 나를 극하는 관계입니다. 상대가 이끄는 쪽이 되기 쉽습니다.",
+    "편인": "상대가 나를 생해 주는 관계입니다. 도움을 받는 쪽이 됩니다.", "정인": "상대가 나를 생해 주는 관계입니다. 도움을 받는 쪽이 됩니다."
+  };
+
+  function branchRelation(x, y) {
+    var out = [];
+    if (x === y) out.push(["같은 지지", "생활 방식과 리듬이 닮았습니다."]);
+    if ((x + y) % 12 === 1) out.push(["육합", "일지끼리 합이라 생활 속에서 잘 맞물리는 조합으로 봅니다."]);
+    if (x !== y && x % 4 === y % 4) out.push(["삼합", "같은 삼합 무리에 속해 방향이 비슷한 조합으로 봅니다."]);
+    if (Math.abs(x - y) === 6) out.push(["충", "일지끼리 충이라 생활 리듬이나 가치관이 부딪히기 쉽습니다. 조율하면 서로 자극이 됩니다."]);
+    var wonjin = [[0, 7], [1, 6], [2, 9], [3, 8], [4, 11], [5, 10]];
+    wonjin.forEach(function (p) {
+      if ((p[0] === x && p[1] === y) || (p[0] === y && p[1] === x)) out.push(["원진", "이유 없이 서운함이 쌓이기 쉬운 조합으로 봅니다. 감정을 바로 말하는 습관이 도움이 됩니다."]);
+    });
+    if (!out.length) out.push(["특별한 합·충 없음", "일지끼리는 무난한 관계입니다."]);
+    return out;
+  }
+
+  function readPerson(p) {
+    return {
+      prefix: p,
+      name: document.getElementById(p + "-name").value.trim(),
+      birthDate: document.getElementById(p + "-date").value,
+      birthTime: document.getElementById(p + "-unknown").checked ? "" : document.getElementById(p + "-time").value,
+      calendar: "solar",
+      gender: document.getElementById(p + "-gender").value
+    };
+  }
+
+  function friendlyError(who, err) {
+    var msg = String(err && err.message || err);
+    if (/birthDate/.test(msg)) return who + "의 양력 생년월일을 입력하세요.";
+    if (/birthTime/.test(msg)) return who + "의 태어난 시간을 입력하거나 '시간 모름'을 체크하세요.";
+    if (/gender/.test(msg)) return who + "의 성별을 선택하세요.";
+    return msg;
+  }
+
+  function analyze(person, who) {
+    try {
+      return { result: Saju.analyzeSaju(person, { analysisType: "fortune", fortuneType: topic, targetYear: 2027 }) };
+    } catch (err) {
+      return { error: friendlyError(who, err) };
+    }
+  }
+
+  function hanjaLine(r) {
+    return ["year", "month", "day", "hour"].map(function (k) { return r.pillars[k] ? r.pillars[k].hanja : null; })
+      .filter(Boolean).join(" ");
+  }
+
+  function personBlock(person, r, withTopic) {
+    var box = el("div", "person-result");
+    var h = el("h3");
+    h.appendChild(document.createTextNode((person.name || "이름 없음") + " · "));
+    h.appendChild(el("span", "hanja", hanjaLine(r)));
+    box.appendChild(h);
+    V.boundaryWarnings(person.birthDate, person.birthTime).concat(r.limitations).forEach(function (w) {
+      box.appendChild(el("p", "warn", w));
+    });
+    var wrap = el("div", "chart-wrap"); var chart = el("div", "chart"); wrap.appendChild(chart);
+    V.renderChart(chart, r); box.appendChild(wrap);
+    var els = el("div", "elements"); V.renderElements(els, r); box.appendChild(els);
+    var dl = el("dl", "engine"); V.renderEngine(dl, r); box.appendChild(dl);
+    box.appendChild(el("h3", null, "부족한 기운 채우기"));
+    var rem = el("div", "remedy"); V.renderRemedy(rem, r); box.appendChild(rem);
+    if (withTopic) {
+      var f = r.fortune;
+      var fb = el("div", "fortune-box");
+      fb.appendChild(el("h3", null, f.label));
+      fb.appendChild(el("p", null, f.summary));
+      var ul = el("ul");
+      f.guidance.forEach(function (g) { ul.appendChild(el("li", null, g)); });
+      fb.appendChild(ul);
+      box.appendChild(fb);
+    }
+    return box;
+  }
+
+  function topicChips() {
+    var chips = el("div", "chips");
+    chips.setAttribute("role", "group");
+    chips.setAttribute("aria-label", "운세 주제");
+    TOPICS.forEach(function (t) {
+      var b = el("button", "chip", t[1]);
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(t[0] === topic));
+      b.addEventListener("click", function () { topic = t[0]; render(); });
+      chips.appendChild(b);
+    });
+    return chips;
+  }
+
+  function compatBlock(a, b, ra, rb) {
+    var c = Saju.checkCompatibility({ person1: a, person2: b });
+    var box = el("div", "compat");
+    box.appendChild(el("h2", null, (a.name || "첫 번째") + " × " + (b.name || "두 번째") + " 궁합"));
+
+    var top = el("div", "compat-top");
+    var score = el("span", "score", String(c.score));
+    score.setAttribute("aria-label", "엔진 궁합 점수 " + c.score + "점, 50점에서 100점 사이");
+    top.appendChild(score);
+    var sw = el("div", "score-wrap");
+    var scale = el("div", "scale"); var fill = el("div", "scale-fill");
+    fill.style.width = ((c.score - 50) / 50 * 100) + "%";
+    scale.appendChild(fill); sw.appendChild(scale);
+    var labels = el("div", "scale-labels");
+    labels.appendChild(el("span", null, "50 최저")); labels.appendChild(el("span", null, "75")); labels.appendChild(el("span", null, "100 최고"));
+    sw.appendChild(labels);
+    sw.appendChild(el("p", "sub", c.summary));
+    top.appendChild(sw);
+    box.appendChild(top);
+
+    var ul = el("ul", "habits");
+    c.focusAreas.forEach(function (g) { ul.appendChild(el("li", null, g)); });
+    box.appendChild(ul);
+
+    var rels = el("div", "relations");
+    var da = ra.pillars.day, db = rb.pillars.day;
+    var godAB = V.tenGod(da.stemIndex, db.stemIndex);
+    var stemRel = el("div", "rel");
+    stemRel.appendChild(el("span", "rel-label", "일간 관계 · 전통 궁합 참고"));
+    stemRel.appendChild(el("span", "rel-value", da.stemHanja + " → " + db.stemHanja + " : " + (a.name || "첫 번째") + "에게 " + godAB));
+    var stemText = STEM_REL[godAB];
+    if (Math.abs(da.stemIndex - db.stemIndex) === 5) stemText += " 두 일간이 천간합을 이뤄 끌림이 강한 조합으로 봅니다.";
+    stemRel.appendChild(el("p", null, stemText));
+    rels.appendChild(stemRel);
+
+    branchRelation(da.branchIndex, db.branchIndex).forEach(function (r) {
+      var d = el("div", "rel");
+      d.appendChild(el("span", "rel-label", "일지 관계 · 전통 궁합 참고"));
+      d.appendChild(el("span", "rel-value", da.branchHanja + " · " + db.branchHanja + " : " + r[0]));
+      d.appendChild(el("p", null, r[1]));
+      rels.appendChild(d);
+    });
+    box.appendChild(rels);
+    return box;
+  }
+
+  function emptyState(title, text) {
+    var box = el("div", "empty-state");
+    box.appendChild(el("strong", null, title));
+    box.appendChild(el("span", null, text));
+    return box;
+  }
+
+  function missing(person) {
+    if (!person.birthDate) return "양력 생년월일";
+    if (!person.birthTime && !document.getElementById(person.prefix + "-unknown").checked) return "태어난 시간 (모르면 '시간 모름' 체크)";
+    if (!person.gender) return "성별";
+    return null;
+  }
+
+  function render() {
+    save();
+    resultBox.textContent = "";
+    var a = readPerson("a");
+    var isPair = pairBox.checked;
+    var needA = missing(a);
+    var needB = isPair ? missing(readPerson("b")) : null;
+    if (needA || needB) {
+      resultBox.appendChild(emptyState(
+        isPair ? "두 사람의 사주와 궁합이 여기에 나옵니다" : "사주팔자, 오행 분포, 운세, 부족한 기운 보완법이 여기에 나옵니다",
+        needA ? "첫 번째 사람의 " + needA + "을(를) 입력하세요." : "두 번째 사람의 " + needB + "을(를) 입력하세요."
+      ));
+      return;
+    }
+    var ra = analyze(a, a.name || "첫 번째 사람");
+    if (ra.error) { resultBox.appendChild(el("p", "error", ra.error)); return; }
+
+    if (!isPair) {
+      resultBox.appendChild(topicChips());
+      resultBox.appendChild(personBlock(a, ra.result, true));
+      return;
+    }
+    var b = readPerson("b");
+    var rb = analyze(b, b.name || "두 번째 사람");
+    if (rb.error) { resultBox.appendChild(el("p", "error", rb.error)); return; }
+    resultBox.appendChild(compatBlock(a, b, ra.result, rb.result));
+    var pair = el("div", "pair");
+    pair.appendChild(personBlock(a, ra.result, false));
+    pair.appendChild(personBlock(b, rb.result, false));
+    resultBox.appendChild(pair);
+  }
+
+  function save() {
+    var data = {};
+    ids.forEach(function (id) {
+      var n = document.getElementById(id);
+      data[id] = n.type === "checkbox" ? n.checked : n.value;
+    });
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) { /* 저장 불가 환경은 무시 */ }
+  }
+
+  function restore() {
+    var data;
+    try { data = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch (e) { data = null; }
+    if (!data) return;
+    ids.forEach(function (id) {
+      if (!(id in data)) return;
+      var n = document.getElementById(id);
+      if (n.type === "checkbox") n.checked = Boolean(data[id]); else n.value = data[id];
+    });
+  }
+
+  function syncDisabled() {
+    ["a", "b"].forEach(function (p) {
+      document.getElementById(p + "-time").disabled = document.getElementById(p + "-unknown").checked;
+    });
+    bFields.hidden = !pairBox.checked;
+  }
+
+  var form = document.getElementById("form");
+  form.addEventListener("input", function () { syncDisabled(); render(); });
+  form.addEventListener("change", function () { syncDisabled(); render(); });
+  form.addEventListener("submit", function (e) { e.preventDefault(); render(); });
+
+  restore();
+  syncDisabled();
+  render();
+})();
+</script>
